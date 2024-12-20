@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify 曲検索</title>
+    <style>
+        /* 背景の変更 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/a/a7/Spotify_icon.svg'); /* Spotifyアイコン画像 */
+            background-size: cover;
+            background-position: center;
+            background-color: rgba(0, 0, 0, 0.6); /* 背景色を透明な黒にして、画像を少し透けさせる */
+            color: white;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #1DB954; /* Spotifyの緑色でタイトルを強調 */
+        }
+
+        /* 検索入力フォーム */
+        #search-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+            border: 2px solid #1DB954; /* 初期状態のボーダーは緑 */
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #1DB954;
+        }
+
+        /* 検索ボックスにフォーカスが当たったときのスタイル */
+        input[type="text"]:focus {
+            outline: none; /* デフォルトのアウトラインを消す */
+            border: 2px solid transparent; /* ボーダーを透明にして */
+            background-color: rgba(0, 0, 0, 0.8); /* 背景色は黒に近い色 */
+            color: #1DB954; /* 文字色は緑 */
+
+            /* ボーダーに黒と緑のグラデーションを設定 */
+            box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.8), 0 0 10px 2px #1DB954;
+        }
+
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            margin-left: 10px;
+            background-color: #1DB954;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #1ed760;
+        }
+
+        /* フィルターボタン */
+        #filter-options {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #filter-options button {
+            margin: 5px;
+            background-color: #1DB954;
+        }
+
+        #filter-options button:hover {
+            background-color: #1ed760;
+        }
+
+        /* 検索結果の表示 */
+        .result-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .result-item {
+            margin: 10px;
+            text-align: center;
+            width: 200px;
+        }
+
+        .result-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        /* 再生ボタンのスタイル */
+        .play-button {
+            background-color: #1DB954; /* Spotifyの緑 */
+            border: none;
+            border-radius: 50%;
+            padding: 15px 20px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .play-button:hover {
+            background-color: #1ed760; /* ホバー時の色 */
+            transform: scale(1.1);
+        }
+
+        /* 再生プレイヤーのスタイル */
+        #player-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        iframe {
+            width: 100%;
+            height: 80px;
+            border: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<h1>Spotify 曲検索</h1>
+
+<div id="search-container">
+    <input type="text" id="search-input" placeholder="アーティスト、曲、アルバムを検索...">
+    <button onclick="searchSpotify()">検索</button>
+</div>
+
+<div id="filter-options">
+    <button onclick="filterResults('album')">アルバム</button>
+    <button onclick="filterResults('single')">シングル</button>
+    <button onclick="filterResults('all')">すべて</button>
+</div>
+
+<div id="result-container" class="result-container">
+    <!-- 検索結果がここに表示されます -->
+</div>
+
+<!-- 再生プレイヤー -->
+<div id="player-container"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    const clientID = 'd4a60d5749104e6991401e27b93f859c';
+    const clientSecret = '26221eb310a7466eb4182988adc397af';
+
+    let accessToken = '';
+    let searchResults = [];
+
+    async function getAccessToken() {
+        const url = 'https://accounts.spotify.com/api/token';
+        const body = new URLSearchParams();
+        body.append('grant_type', 'client_credentials');
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + btoa(clientID + ':' + clientSecret),
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body
+        });
+
+        const data = await response.json();
+        accessToken = data.access_token;
+    }
+
+    async function searchSpotify() {
+        const query = document.getElementById('search-input').value;
+        if (!query) return;
+
+        await getAccessToken(); // アクセストークンを取得
+
+        const url = `https://api.spotify.com/v1/search?q=${query}&type=track,album&limit=10`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+
+        const data = await response.json();
+        searchResults = [...data.albums.items, ...data.tracks.items]; // アルバムとトラックを統合
+        displayResults(searchResults); // 検索結果を表示
+    }
+
+    function displayResults(results) {
+        const resultContainer = document.getElementById('result-container');
+        resultContainer.innerHTML = ''; // 結果をクリア
+
+        results.forEach(item => {
+            const isAlbum = item.album ? true : false; // アルバムかシングルかを判定
+            const div = document.createElement('div');
+            div.classList.add('result-item');
+            div.setAttribute('data-type', isAlbum ? 'album' : 'single'); // データ属性で識別
+            div.innerHTML = `
+                <img src="${item.images ? item.images[0]?.url : item.album.images[0]?.url}" alt="${item.name}">
+                <h3>${item.name}</h3>
+                <p>${isAlbum ? item.artists[0].name : item.artists[0]?.name}</p>
+                <p>${isAlbum ? 'アルバム' : 'シングル'}</p>
+                <button class="play-button" onclick="playTrack('${item.uri}')">▶</button>
+            `;
+            resultContainer.appendChild(div);
+        });
+    }
+
+    function playTrack(uri) {
+        const trackId = uri.split(":")[2]; // SpotifyトラックID
+
+        // プレイヤーコンテナを取得
+        const playerContainer = document.getElementById('player-container');
+        playerContainer.innerHTML = ''; // 既存のプレイヤーを消去
+
+        // 新しいiframeを作成して再生
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://open.spotify.com/embed/track/${trackId}`;
+        iframe.allow = "encrypted-media";
+        playerContainer.appendChild(iframe);
+    }
+
+    function filterResults(type) {
+        const resultContainer = document.getElementById('result-container');
+        const items = resultContainer.children;
+
+        for (let item of items) {
+            const itemType = item.getAttribute('data-type'); // アイテムのtypeを取得
+            if (type === 'all' || itemType === type) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
